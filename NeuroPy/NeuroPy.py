@@ -27,7 +27,10 @@
 ##SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import serial
-import thread
+import _thread
+import logging
+import struct
+
 
 class NeuroPy(object):
     """NeuroPy libraby, to get data from neurosky mindwave.
@@ -61,7 +64,18 @@ class NeuroPy(object):
     srl=None
     __port=None
     __baudRate=None
-    
+
+    SYNC = b'\xaa'
+    POOR_SIGNAL = b'\x02'
+    ATTENTION = b'\x04'
+    MEDITATION = b'\x05'
+    BLINK_STRENGTH = b'\x16'
+    RAW_VALUE = b'\x80'
+    ASIC_EEG_POWER = b'\x83'
+
+    logging.basicConfig(level=logging.DEBUG)
+
+
     threadRun=True #controlls the running of thread
     callBacksDictionary={} #keep a track of all callbacks
     def __init__(self,port,baudRate=57600):
@@ -75,79 +89,81 @@ class NeuroPy(object):
         self.threadRun=True
         #self.srl=serial.Serial(self.__port,self.__baudRate)
         self.srl=serial.Serial(self.__port)
-        thread.start_new_thread(self.__packetParser,(self.srl,))
+        _thread.start_new_thread(self.__packetParser,(self.srl,))
    
     def __packetParser(self,srl):
         "packetParser runs continously in a separate thread to parse packets from mindwave and update the corresponding variables"
         #srl.open()
         while self.threadRun:
-            p1=srl.read(1).encode("hex") #read first 2 packets
-            p2=srl.read(1).encode("hex")
-            while p1!='aa' or p2!='aa':
+            p1=srl.read(1) #read first 2 packets
+            p2=srl.read(1)
+            #logging.debug("%s , %s", p1, p2)
+            while p1!=self.SYNC or p2!=self.SYNC:
                 p1=p2
-                p2=srl.read(1).encode("hex")
+                p2=srl.read(1)
             else:
                 #a valid packet is available
                 payload=[]
                 checksum=0;
-                payloadLength=int(srl.read(1).encode("hex"),16)
+                #payloadLength=int(srl.read(1),16)
+                payloadLength=struct.unpack('B', srl.read(1))[0]
                 for i in range(payloadLength):
-                    tempPacket=srl.read(1).encode("hex")
+                    tempPacket=srl.read(1)
                     payload.append(tempPacket)
-                    checksum+=int(tempPacket,16)
+                    checksum+=struct.unpack('B', tempPacket)[0]
                 checksum=~checksum&0x000000ff
-                if checksum==int(srl.read(1).encode("hex"),16):
+                if checksum==struct.unpack('B', srl.read(1))[0]:
                    i=0
                    while i<payloadLength:
                        code=payload[i]
-                       if(code=='02'):#poorSignal
-                           i=i+1; self.poorSignal=int(payload[i],16)
-                       elif(code=='04'):#attention
-                           i=i+1; self.attention=int(payload[i],16)
-                       elif(code=='05'):#meditation
-                           i=i+1; self.meditation=int(payload[i],16)
-                       elif(code=='16'):#blink strength
-                           i=i+1; self.blinkStrength=int(payload[i],16)
-                       elif(code=='80'):#raw value
+                       if(code==self.POOR_SIGNAL):#poorSignal
+                           i=i+1; self.poorSignal=struct.unpack('B', payload[i])[0]
+                       elif(code==self.ATTENTION):#attention
+                           i=i+1; self.attention=struct.unpack('B', payload[i])[0]
+                       elif(code==self.MEDITATION):#meditation
+                           i=i+1; self.meditation=struct.unpack('B', payload[i])[0]
+                       elif(code==self.BLINK_STRENGTH):#blink strength
+                           i=i+1; self.blinkStrength=struct.unpack('B', payload[i])[0]
+                       elif(code==self.RAW_VALUE):#raw value
                            i=i+1 #for length/it is not used since length =1 byte long and always=2
-                           i=i+1; val0=int(payload[i],16)
-                           i=i+1; self.rawValue=val0*256+int(payload[i],16)
+                           i=i+1; val0=struct.unpack('B', payload[i])[0]
+                           i=i+1; self.rawValue=val0*256+struct.unpack('B', payload[i])[0]
                            if self.rawValue>32768 :
                                self.rawValue=self.rawValue-65536
-                       elif(code=='83'):#ASIC_EEG_POWER
+                       elif(code==self.ASIC_EEG_POWER):#ASIC_EEG_POWER
                            i=i+1;#for length/it is not used since length =1 byte long and always=2
                            #delta:
-                           i=i+1; val0=int(payload[i],16)
-                           i=i+1; val1=int(payload[i],16)
-                           i=i+1; self.delta=val0*65536+val1*256+int(payload[i],16)
+                           i=i+1; val0=struct.unpack('B', payload[i])[0]
+                           i=i+1; val1=struct.unpack('B', payload[i])[0]
+                           i=i+1; self.delta=val0*65536+val1*256+struct.unpack('B', payload[i])[0]
                            #theta:
-                           i=i+1; val0=int(payload[i],16)
-                           i=i+1; val1=int(payload[i],16)
-                           i=i+1; self.theta=val0*65536+val1*256+int(payload[i],16)
+                           i=i+1; val0=struct.unpack('B', payload[i])[0]
+                           i=i+1; val1=struct.unpack('B', payload[i])[0]
+                           i=i+1; self.theta=val0*65536+val1*256+struct.unpack('B', payload[i])[0]
                            #lowAlpha:
-                           i=i+1; val0=int(payload[i],16)
-                           i=i+1; val1=int(payload[i],16)
-                           i=i+1; self.lowAlpha=val0*65536+val1*256+int(payload[i],16)
+                           i=i+1; val0=struct.unpack('B', payload[i])[0]
+                           i=i+1; val1=struct.unpack('B', payload[i])[0]
+                           i=i+1; self.lowAlpha=val0*65536+val1*256+struct.unpack('B', payload[i])[0]
                            #highAlpha:
-                           i=i+1; val0=int(payload[i],16)
-                           i=i+1; val1=int(payload[i],16)
-                           i=i+1; self.highAlpha=val0*65536+val1*256+int(payload[i],16)
+                           i=i+1; val0=struct.unpack('B', payload[i])[0]
+                           i=i+1; val1=struct.unpack('B', payload[i])[0]
+                           i=i+1; self.highAlpha=val0*65536+val1*256+struct.unpack('B', payload[i])[0]
                            #lowBeta:
-                           i=i+1; val0=int(payload[i],16)
-                           i=i+1; val1=int(payload[i],16)
-                           i=i+1; self.lowBeta=val0*65536+val1*256+int(payload[i],16)
+                           i=i+1; val0=struct.unpack('B', payload[i])[0]
+                           i=i+1; val1=struct.unpack('B', payload[i])[0]
+                           i=i+1; self.lowBeta=val0*65536+val1*256+struct.unpack('B', payload[i])[0]
                            #highBeta:
-                           i=i+1; val0=int(payload[i],16)
-                           i=i+1; val1=int(payload[i],16)
-                           i=i+1; self.highBeta=val0*65536+val1*256+int(payload[i],16)
+                           i=i+1; val0=struct.unpack('B', payload[i])[0]
+                           i=i+1; val1=struct.unpack('B', payload[i])[0]
+                           i=i+1; self.highBeta=val0*65536+val1*256+struct.unpack('B', payload[i])[0]
                            #lowGamma:
-                           i=i+1; val0=int(payload[i],16)
-                           i=i+1; val1=int(payload[i],16)
-                           i=i+1; self.lowGamma=val0*65536+val1*256+int(payload[i],16)
+                           i=i+1; val0=struct.unpack('B', payload[i])[0]
+                           i=i+1; val1=struct.unpack('B', payload[i])[0]
+                           i=i+1; self.lowGamma=val0*65536+val1*256+struct.unpack('B', payload[i])[0]
                            #midGamma:
-                           i=i+1; val0=int(payload[i],16)
-                           i=i+1; val1=int(payload[i],16)
-                           i=i+1; self.midGamma=val0*65536+val1*256+int(payload[i],16)
+                           i=i+1; val0=struct.unpack('B', payload[i])[0]
+                           i=i+1; val1=struct.unpack('B', payload[i])[0]
+                           i=i+1; self.midGamma=val0*65536+val1*256+struct.unpack('B', payload[i])[0]
                        else:
                            pass
                        i=i+1
@@ -177,7 +193,7 @@ class NeuroPy(object):
     @attention.setter
     def attention(self,value):
         self.__attention=value
-        if self.callBacksDictionary.has_key("attention"): #if callback has been set, execute the function
+        if "attention" in self.callBacksDictionary: #if callback has been set, execute the function
             self.callBacksDictionary["attention"](self.__attention)
             
     #meditation
@@ -188,7 +204,7 @@ class NeuroPy(object):
     @meditation.setter
     def meditation(self,value):
         self.__meditation=value
-        if self.callBacksDictionary.has_key("meditation"): #if callback has been set, execute the function
+        if "meditation" in self.callBacksDictionary: #if callback has been set, execute the function
             self.callBacksDictionary["meditation"](self.__meditation)
             
     #rawValue
@@ -199,7 +215,7 @@ class NeuroPy(object):
     @rawValue.setter
     def rawValue(self,value):
         self.__rawValue=value
-        if self.callBacksDictionary.has_key("rawValue"): #if callback has been set, execute the function
+        if "rawValue" in self.callBacksDictionary: #if callback has been set, execute the function
             self.callBacksDictionary["rawValue"](self.__rawValue)
 
     #delta
@@ -210,7 +226,7 @@ class NeuroPy(object):
     @delta.setter
     def delta(self,value):
         self.__delta=value
-        if self.callBacksDictionary.has_key("delta"): #if callback has been set, execute the function
+        if "delta" in self.callBacksDictionary: #if callback has been set, execute the function
             self.callBacksDictionary["delta"](self.__delta)
 
     #theta
@@ -221,7 +237,7 @@ class NeuroPy(object):
     @theta.setter
     def theta(self,value):
         self.__theta=value
-        if self.callBacksDictionary.has_key("theta"): #if callback has been set, execute the function
+        if "theta" in self.callBacksDictionary: #if callback has been set, execute the function
             self.callBacksDictionary["theta"](self.__theta)
 
     #lowAlpha
@@ -232,7 +248,7 @@ class NeuroPy(object):
     @lowAlpha.setter
     def lowAlpha(self,value):
         self.__lowAlpha=value
-        if self.callBacksDictionary.has_key("lowAlpha"): #if callback has been set, execute the function
+        if "lowAlpha" in self.callBacksDictionary: #if callback has been set, execute the function
             self.callBacksDictionary["lowAlpha"](self.__lowAlpha)
 
     #highAlpha
@@ -243,7 +259,7 @@ class NeuroPy(object):
     @highAlpha.setter
     def highAlpha(self,value):
         self.__highAlpha=value
-        if self.callBacksDictionary.has_key("highAlpha"): #if callback has been set, execute the function
+        if "highAlpha" in self.callBacksDictionary: #if callback has been set, execute the function
             self.callBacksDictionary["highAlpha"](self.__highAlpha)
 
 
@@ -255,7 +271,7 @@ class NeuroPy(object):
     @lowBeta.setter
     def lowBeta(self,value):
         self.__lowBeta=value
-        if self.callBacksDictionary.has_key("lowBeta"): #if callback has been set, execute the function
+        if "lowBeta" in self.callBacksDictionary: #if callback has been set, execute the function
             self.callBacksDictionary["lowBeta"](self.__lowBeta)
 
     #highBeta
@@ -266,7 +282,7 @@ class NeuroPy(object):
     @highBeta.setter
     def highBeta(self,value):
         self.__highBeta=value
-        if self.callBacksDictionary.has_key("highBeta"): #if callback has been set, execute the function
+        if "highBeta" in self.callBacksDictionary: #if callback has been set, execute the function
             self.callBacksDictionary["highBeta"](self.__highBeta)
 
     #lowGamma
@@ -277,7 +293,7 @@ class NeuroPy(object):
     @lowGamma.setter
     def lowGamma(self,value):
         self.__lowGamma=value
-        if self.callBacksDictionary.has_key("lowGamma"): #if callback has been set, execute the function
+        if "lowGamma" in self.callBacksDictionary: #if callback has been set, execute the function
             self.callBacksDictionary["lowGamma"](self.__lowGamma)
 
     #midGamma
@@ -288,7 +304,7 @@ class NeuroPy(object):
     @midGamma.setter
     def midGamma(self,value):
         self.__midGamma=value
-        if self.callBacksDictionary.has_key("midGamma"): #if callback has been set, execute the function
+        if "midGamma" in self.callBacksDictionary: #if callback has been set, execute the function
             self.callBacksDictionary["midGamma"](self.__midGamma)
     
     #poorSignal
@@ -299,7 +315,7 @@ class NeuroPy(object):
     @poorSignal.setter
     def poorSignal(self,value):
         self.__poorSignal=value
-        if self.callBacksDictionary.has_key("poorSignal"): #if callback has been set, execute the function
+        if "poorSignal" in self.callBacksDictionary: #if callback has been set, execute the function
             self.callBacksDictionary["poorSignal"](self.__poorSignal)
     
     #blinkStrength
@@ -310,5 +326,5 @@ class NeuroPy(object):
     @blinkStrength.setter
     def blinkStrength(self,value):
         self.__blinkStrength=value
-        if self.callBacksDictionary.has_key("blinkStrength"): #if callback has been set, execute the function
+        if "blinkStrength" in self.callBacksDictionary: #if callback has been set, execute the function
             self.callBacksDictionary["blinkStrength"](self.__blinkStrength)

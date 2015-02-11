@@ -1,9 +1,9 @@
-from NeuroPy import NeuroPy
+from NeuroPy.NeuroPy import NeuroPy
 import logging
 
 #object1=NeuroPy("COM6") #If port not given 57600 is automatically assumed
 object1=NeuroPy("/dev/tty.BrainBandXL-SPPDev")
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 
 
 def attention_callback(attention_value):
@@ -48,6 +48,13 @@ def poorSignal_callback(poorSignal_value):
     #do some more stuff
     return None
 
+def blinkStrength_callback(blinkStrength_value):
+    "this function will be called everytime NeuroPy has a new value for attention"
+    logging.info("Value of BlinkStrength is: %d",blinkStrength_value)
+    #do other stuff (fire a rocket), based on the obtained value of attention_value
+    #do some more stuff
+    return None
+
 #set call back:
 object1.setCallBack("attention",attention_callback)
 object1.setCallBack("meditation",meditation_callback)
@@ -62,12 +69,12 @@ object1.setCallBack("lowGamma",lowGamma_callback)
 object1.setCallBack("poorSignal",poorSignal_callback)
 #object1.setCallBack("rawValue",rawValue_callback)
 
-
 #set call back:
-#object1.setCallBack("blinkStrength",blinkStrength_callback)
+object1.setCallBack("blinkStrength",blinkStrength_callback)
 
 
 object1.start()
+logging.info("oops")
 
 while True:
     True
