@@ -73,7 +73,8 @@ class NeuroPy(object):
     def start(self):
         """starts packetparser in a separate thread"""
         self.threadRun=True
-        self.srl=serial.Serial(self.__port,self.__baudRate)
+        #self.srl=serial.Serial(self.__port,self.__baudRate)
+        self.srl=serial.Serial(self.__port)
         thread.start_new_thread(self.__packetParser,(self.srl,))
    
     def __packetParser(self,srl):
