@@ -41,7 +41,7 @@ class NeuroPy(object):
     The data from the device can be obtained using either of the following methods or both of them together:
     
     Obtaining value: variable1=object1.attention #to get value of attention
-    #other variables: attention,meditation,rawValue,delta,theta,lowAlpha,highAlpha,lowBeta,highBeta,lowGamma,midGamma, poorSignal and blinkStrength
+    #other variables: attention,meditation,rawValue,delta,theta,lowAlpha,highAlpha,lowBeta,highBeta,lowGamma,midGamma,asic_eeg poorSignal and blinkStrength
     
     Setting callback:a call back can be associated with all the above variables so that a function is called when the variable is updated. Syntax: setCallBack("variable",callback_function)
     for eg. to set a callback for attention data the syntax will be setCallBack("attention",callback_function)"""
@@ -58,6 +58,10 @@ class NeuroPy(object):
     __midGamma=0    
     __poorSignal=0
     __blinkStrength=0
+    __asicEeg = {'delta': 0, 'theta': 0,
+             'lowAlpha': 0, 'highAlpha':0,
+             'lowBeta': 0, 'highBeta': 0,
+             'lowGamma': 0, 'midGamma': 0}
     srl=None
     __port=None
     __baudRate=None
@@ -148,6 +152,9 @@ class NeuroPy(object):
                            i=i+1; val0=int(payload[i],16)
                            i=i+1; val1=int(payload[i],16)
                            i=i+1; self.midGamma=val0*65536+val1*256+int(payload[i],16)
+                           if "asic_eeg" in self.callBacksDictionary: #if callback has been set, execute the function
+                            self.callBacksDictionary["asic_eeg"](self.__asicEeg)
+
                        else:
                            pass
                        i=i+1
@@ -210,6 +217,7 @@ class NeuroPy(object):
     @delta.setter
     def delta(self,value):
         self.__delta=value
+        self.__asicEeg['delta'] = value
         if self.callBacksDictionary.has_key("delta"): #if callback has been set, execute the function
             self.callBacksDictionary["delta"](self.__delta)
 
@@ -221,6 +229,7 @@ class NeuroPy(object):
     @theta.setter
     def theta(self,value):
         self.__theta=value
+        self.__asicEeg['theta'] = value
         if self.callBacksDictionary.has_key("theta"): #if callback has been set, execute the function
             self.callBacksDictionary["theta"](self.__theta)
 
@@ -232,6 +241,7 @@ class NeuroPy(object):
     @lowAlpha.setter
     def lowAlpha(self,value):
         self.__lowAlpha=value
+        self.__asicEeg['lowAlpha'] = value
         if self.callBacksDictionary.has_key("lowAlpha"): #if callback has been set, execute the function
             self.callBacksDictionary["lowAlpha"](self.__lowAlpha)
 
@@ -243,6 +253,7 @@ class NeuroPy(object):
     @highAlpha.setter
     def highAlpha(self,value):
         self.__highAlpha=value
+        self.__asicEeg['highAlpha'] = value
         if self.callBacksDictionary.has_key("highAlpha"): #if callback has been set, execute the function
             self.callBacksDictionary["highAlpha"](self.__highAlpha)
 
@@ -255,6 +266,7 @@ class NeuroPy(object):
     @lowBeta.setter
     def lowBeta(self,value):
         self.__lowBeta=value
+        self.__asicEeg['lowBeta'] = value
         if self.callBacksDictionary.has_key("lowBeta"): #if callback has been set, execute the function
             self.callBacksDictionary["lowBeta"](self.__lowBeta)
 
@@ -266,6 +278,7 @@ class NeuroPy(object):
     @highBeta.setter
     def highBeta(self,value):
         self.__highBeta=value
+        self.__asicEeg['highBeta'] = value
         if self.callBacksDictionary.has_key("highBeta"): #if callback has been set, execute the function
             self.callBacksDictionary["highBeta"](self.__highBeta)
 
@@ -277,6 +290,7 @@ class NeuroPy(object):
     @lowGamma.setter
     def lowGamma(self,value):
         self.__lowGamma=value
+        self.__asicEeg['lowGamma'] = value
         if self.callBacksDictionary.has_key("lowGamma"): #if callback has been set, execute the function
             self.callBacksDictionary["lowGamma"](self.__lowGamma)
 
@@ -288,6 +302,7 @@ class NeuroPy(object):
     @midGamma.setter
     def midGamma(self,value):
         self.__midGamma=value
+        self.__asicEeg['midGamma'] = value
         if self.callBacksDictionary.has_key("midGamma"): #if callback has been set, execute the function
             self.callBacksDictionary["midGamma"](self.__midGamma)
     
